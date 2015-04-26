@@ -11,7 +11,12 @@ def readfileAPM(filename):
 			res.append(vec)
 	return np.array(res)
 
+print "reading file "
 data = readfileAPM('/home/eliezer/datasets/apm/apm100.train.query.300.keys')
+print data[0]
+print "file processed"
+print "indexing"
 knn = LSHkNN.initVoronoiLSH(2,10,data)
-
-
+print "querying"
+x = knn.kNNQuery(10,data[0])
+print x
