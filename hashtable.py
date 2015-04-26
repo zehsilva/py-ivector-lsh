@@ -1,4 +1,5 @@
 from Pandas import Series
+from random import sample
 
 class Lshtable:
 	def __init__(self,numkeys,lshfun,data):
@@ -6,10 +7,10 @@ class Lshtable:
 		self.numT = len(lshfun)
 		self.f = lshfun
 		self.data = data
-		self.table = Series(l:Series({k:[] for k in range(self.numk)}) for l in range(self.numT)})
+		self.table = Series({l:Series({k:[] for k in range(self.numk)}) for l in range(self.numT)})
 	
 	def mapindex(self,key):
-		vecfun=np.vectorize(lambda f:f.hash(key))
+		vecfun=np.vectorize(lambda fun:fun.hash(key))
 		return vecfun(self.f)
 
 	def indexdata(self):
@@ -34,6 +35,21 @@ class LSHkNN:
 	def __init__(self,distfun,lshtble):
 		self.dist = distfun
 		self.table = lshtble
+
+	def initVoronoiLSH(L,k,data):
+		funlst = []
+		dist = lambda a,b:np.linalg.norm(a-b)
+		for i in range(L):
+			idx = np.array(random.sample(data,k))
+			funlst.append(VoronoiLSH(data[idx],self.dist))
+		table = Lshtable(k,np.array(funlst),data)
+		knn  = LSHkNN(dist,table)
+		table.indexdata()
+		return knn
+
+    	initVoronoiLSH = staticmethod(initVoronoiLSH)
+
+
 	def candidateDistance(self,query):
 		fcalcdist=lambda ind:(self.dist(self.table.data[ind],query),ind)
 		return [fcalcdist(i) for i in self.table.candidateset(query)]
@@ -63,7 +79,5 @@ class CossineLSH:
 	def __init__(self,d,numplanes,m):
 		self.d = d
 		self.b = numplanes
-		self.m = m
-
-
+		self.m = m 
 
