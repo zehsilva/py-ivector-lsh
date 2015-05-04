@@ -33,7 +33,8 @@ def load_model_key(filename, model_ids):
     return np.array(y)
 
 def load_ivectors(filename):
-    """Loads ivectors
+    """
+    Loads ivectors
 
     Parameters
     ----------
@@ -52,49 +53,55 @@ def load_ivectors(filename):
     ids = []
     durations = []
     ivectors = []
+    
     for row in csv.DictReader(open(filename, 'rb')):
-        ids.append( row['ivectorid'] )
-        durations.append( float(row['duration_secs']) )
-        ivectors.append( np.fromstring(row['values[600]'], count=600, sep=' ', dtype=np.float32) )
+        ids.append(row['ivectorid'])
+        durations.append(float(row['duration_secs']))
+        ivectors.append(np.fromstring(row['values[600]'], count=600, sep=' ',
+                                      dtype=np.float32))
 
-    return ids, np.array(durations, dtype=np.float32), np.vstack( ivectors )
+    return ids, np.array(durations, dtype=np.float32), np.vstack(ivectors)
 
 def main():
     # load ivector ids, durations and ivectors (as row vectors)
-    dev_ids, dev_durations, dev_ivec = load_ivectors('data/dev_ivectors.csv')
-    model_ids, model_durations, model_ivec = load_ivectors('data/model_ivectors.csv')
-    test_ids, test_durations, test_ivec = load_ivectors('data/test_ivectors.csv')
-
+    dev_ids, dev_durations, dev_ivec = load_ivectors("data/dev_ivectors.csv")
+    model_ids, model_durations, model_ivec = \
+        load_ivectors("data/model_ivectors.csv")
+    test_ids, test_durations, test_ivec = \
+        load_ivectors("data/test_ivectors.csv")
+    
     # load model key corresponding to the same ordering as model_ids
     model_key = load_model_key('data/target_speaker_models.csv', model_ids)
-
+    
     # compute the mean and whitening transformation over dev set only
     m = np.mean(dev_ivec, axis=0)
     S = np.cov(dev_ivec, rowvar=0)
     D, V = np.linalg.eig(S)
-    W = (1/np.sqrt(D) * V).transpose().astype('float32')
-
+    W = (1 / np.sqrt(D) * V).transpose().astype('float32')
+    
     # center and whiten all i-vectors
     dev_ivec = np.dot(dev_ivec - m, W.transpose())
     model_ivec = np.dot(model_ivec - m, W.transpose())
     test_ivec = np.dot(test_ivec - m, W.transpose())
-
+    
     # project all i-vectors into unit sphere
-    dev_ivec /= np.sqrt(np.sum(dev_ivec**2, axis=1))[:, np.newaxis]
-    model_ivec /= np.sqrt(np.sum(model_ivec**2, axis=1))[:, np.newaxis]
-    test_ivec /= np.sqrt(np.sum(test_ivec**2, axis=1))[:, np.newaxis]
-
+    dev_ivec /= np.sqrt(np.sum(dev_ivec ** 2, axis=1))[:, np.newaxis]
+    model_ivec /= np.sqrt(np.sum(model_ivec ** 2, axis=1))[:, np.newaxis]
+    test_ivec /= np.sqrt(np.sum(test_ivec ** 2, axis=1))[:, np.newaxis]
+    
     # create a speaker model by taking mean over i-vectors
     # from that speaker (in this case each should have 5)
-    avg_model_ivec = np.zeros( (len(np.unique(model_key)), model_ivec.shape[1]) )
+    avg_model_ivec = np.zeros((len(np.unique(model_key)), model_ivec.shape[1]))
     avg_model_names = []
+    
     for i, key in enumerate(np.unique(model_key)):
-        avg_model_ivec[i] = np.mean(model_ivec[model_key==key], axis=0)
-        avg_model_names.append( key )
-
+        avg_model_ivec[i] = np.mean(model_ivec[model_key == key], axis=0)
+        avg_model_names.append(key)
+    
     # project the avg model i-vectors into unit sphere
-    avg_model_ivec /= np.sqrt(np.sum(avg_model_ivec**2, axis=1))[:, np.newaxis]
-
+    avg_model_ivec /= np.sqrt(np.sum(avg_model_ivec ** 2, axis=1)) \
+        [:, np.newaxis]
+    
     # compute inner product of all avg model ivectors and test ivectors
     # since everything is already unit length this is the cosine distance
     #scores = np.zeros((avg_model_ivec.shape[0], test_ivec.shape[0]))
@@ -120,12 +127,14 @@ def main():
     # so sort and output to a bz2 file
     avg_model_names_indexes = np.argsort(np.array(avg_model_names))
     test_ids_indexes = np.argsort(np.array(test_ids))
+    
     f = bz2.BZ2File('myscores.txt.bz2', 'w')
+    
     for i in avg_model_names_indexes:
         for j in test_ids_indexes:
             f.write('%f\n' % scores[i,j])
+    
     f.close()
-
 
 if __name__=='__main__':
     main()
